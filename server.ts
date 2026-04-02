@@ -22,7 +22,6 @@ import {
   CallToolRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { registerPrWebhook, registerRepoWebhook, unregisterWebhook } from "@agiterra/github-tools";
-import { createAuthJwt } from "@agiterra/wire-tools/crypto";
 
 const WIRE_URL = process.env.WIRE_URL ?? "http://localhost:9800";
 const WIRE_EXTERNAL_URL = process.env.WIRE_EXTERNAL_URL ?? WIRE_URL;
@@ -148,10 +147,6 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
   try {
     if (!signingKey) throw new Error("no signing key — Wire auth disabled");
 
-    // Mint a JWT for Wire API calls
-    const body = "{}";
-    const wireAuthToken = await createAuthJwt(signingKey, AGENT_ID, body);
-
     if (name === "register_pr_webhook") {
       const repo = a.repo as string;
       const prNumber = a.pr_number as number;
@@ -164,7 +159,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
       const result = await registerPrWebhook({
         wireUrl: WIRE_URL,
         agentId: AGENT_ID,
-        wireAuthToken,
+        signingKey,
         githubToken: token,
         repo,
         prNumber,
@@ -198,7 +193,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
       const result = await registerRepoWebhook({
         wireUrl: WIRE_URL,
         agentId: AGENT_ID,
-        wireAuthToken,
+        signingKey,
         githubToken: token,
         repo,
         name: webhookName,
@@ -225,7 +220,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
       await unregisterWebhook({
         wireUrl: WIRE_URL,
         agentId: AGENT_ID,
-        wireAuthToken,
+        signingKey,
         webhookId,
       });
 
