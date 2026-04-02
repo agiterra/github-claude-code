@@ -4,8 +4,7 @@
  *
  * Provides tools for agents to register and manage GitHub webhooks on Wire.
  * The agent calls register_pr_webhook with a repo and PR number; the plugin
- * handles creating the GitHub hook, Wire registration, HMAC validation,
- * PR filtering, and cleanup on deletion.
+ * handles creating the GitHub hook and registering it on Wire.
  *
  * Config env vars:
  *   WIRE_URL             default http://localhost:9800
@@ -21,7 +20,8 @@ import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { registerPrWebhook, registerRepoWebhook, unregisterWebhook } from "@agiterra/github-tools";
+import { registerPrWebhook, registerRepoWebhook, deleteGithubWebhook } from "@agiterra/github-tools";
+import { createAuthJwt } from "@agiterra/wire-tools/crypto";
 
 const WIRE_URL = process.env.WIRE_URL ?? "http://localhost:9800";
 const WIRE_EXTERNAL_URL = process.env.WIRE_EXTERNAL_URL ?? WIRE_URL;
@@ -31,10 +31,8 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN ?? "";
 
 let signingKey: CryptoKey | null = null;
 
-// --- MCP server ---
-
 const mcp = new Server(
-  { name: "github", version: "0.1.0" },
+  { name: "github-webhooks", version: "0.1.0" },
   {
     capabilities: { tools: {} },
     instructions:
@@ -45,43 +43,20 @@ const mcp = new Server(
   },
 );
 
-// --- Tools ---
-
 mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
       name: "register_pr_webhook",
       description:
         "Register a GitHub webhook to monitor a PR. Creates the hook on GitHub " +
-        "and registers it on Wire with HMAC validation and PR number filtering. " +
-        "Events delivered via Wire SSE.",
+        "and registers it on Wire with HMAC validation and PR number filtering.",
       inputSchema: {
         type: "object" as const,
         properties: {
-          repo: {
-            type: "string",
-            description: "Repository in owner/repo format (e.g. 'fabrica-land/soil-app')",
-          },
-          pr_number: {
-            type: "number",
-            description: "PR number to monitor",
-          },
-          name: {
-            type: "string",
-            description: "Optional webhook name. Defaults to '{repo-name}-pr-{number}'",
-          },
-          events: {
-            type: "array",
-            items: { type: "string" },
-            description:
-              "GitHub events to subscribe to. Defaults to: check_run, pull_request, " +
-              "pull_request_review, pull_request_review_comment, issue_comment, workflow_run",
-          },
-          github_token: {
-            type: "string",
-            description:
-              "GitHub token with admin:repo_hook scope. Defaults to GITHUB_TOKEN env var.",
-          },
+          repo: { type: "string", description: "Repository in owner/repo format" },
+          pr_number: { type: "number", description: "PR number to monitor" },
+          name: { type: "string", description: "Optional webhook name. Defaults to '{repo-name}-pr-{number}'" },
+          github_token: { type: "string", description: "GitHub token. Defaults to GITHUB_TOKEN env var." },
         },
         required: ["repo", "pr_number"],
       },
@@ -89,50 +64,26 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "register_repo_webhook",
       description:
-        "Register a GitHub webhook for a repo with custom events and filter. " +
-        "For PR monitoring, prefer register_pr_webhook which sets up defaults.",
+        "Register a GitHub webhook for a repo with custom events and filter.",
       inputSchema: {
         type: "object" as const,
         properties: {
-          repo: {
-            type: "string",
-            description: "Repository in owner/repo format",
-          },
-          name: {
-            type: "string",
-            description: "Webhook name (used in the Wire URL path)",
-          },
-          events: {
-            type: "array",
-            items: { type: "string" },
-            description: "GitHub events to subscribe to",
-          },
-          filter: {
-            type: "string",
-            description:
-              "JS filter expression. Available vars: headers (object), payload (parsed body). " +
-              "Return true to deliver, false to drop. Example: 'payload.action === \"completed\"'",
-          },
-          github_token: {
-            type: "string",
-            description: "GitHub token. Defaults to GITHUB_TOKEN env var.",
-          },
+          repo: { type: "string", description: "Repository in owner/repo format" },
+          name: { type: "string", description: "Webhook name (used in the Wire URL path)" },
+          events: { type: "array", items: { type: "string" }, description: "GitHub events to subscribe to" },
+          filter: { type: "string", description: "JS filter expression. Vars: headers, payload." },
+          github_token: { type: "string", description: "GitHub token. Defaults to GITHUB_TOKEN env var." },
         },
         required: ["repo", "name", "events"],
       },
     },
     {
       name: "unregister_webhook",
-      description:
-        "Unregister a webhook from Wire. Runs the cleanup code to delete the " +
-        "GitHub hook automatically.",
+      description: "Delete a Wire webhook registration. Runs cleanup code to delete the GitHub hook.",
       inputSchema: {
         type: "object" as const,
         properties: {
-          webhook_id: {
-            type: "number",
-            description: "Wire webhook ID (returned by register_pr_webhook)",
-          },
+          webhook_id: { type: "number", description: "Wire webhook ID (returned by register_*)" },
         },
         required: ["webhook_id"],
       },
@@ -140,75 +91,91 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
   ],
 }));
 
+/** Sign body and POST to Wire. */
+async function wirePost(path: string, body: string): Promise<Response> {
+  if (!signingKey) throw new Error("no signing key — Wire auth disabled");
+  const token = await createAuthJwt(signingKey, AGENT_ID, body);
+  return fetch(`${WIRE_URL}${path}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body,
+  });
+}
+
+/** Sign body and DELETE on Wire. */
+async function wireDelete(path: string): Promise<Response> {
+  if (!signingKey) throw new Error("no signing key — Wire auth disabled");
+  const body = "{}";
+  const token = await createAuthJwt(signingKey, AGENT_ID, body);
+  return fetch(`${WIRE_URL}${path}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body,
+  });
+}
+
 mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
   const { name, arguments: args } = req.params;
   const a = (args ?? {}) as Record<string, unknown>;
 
   try {
-    if (!signingKey) throw new Error("no signing key — Wire auth disabled");
-
     if (name === "register_pr_webhook") {
-      const repo = a.repo as string;
-      const prNumber = a.pr_number as number;
       const token = (a.github_token as string) || GITHUB_TOKEN;
-
       if (!token) throw new Error("no GitHub token — set GITHUB_TOKEN or pass github_token param");
-      if (!repo) throw new Error("missing repo");
-      if (!prNumber) throw new Error("missing pr_number");
 
       const result = await registerPrWebhook({
-        wireUrl: WIRE_URL,
-        agentId: AGENT_ID,
-        signingKey,
         githubToken: token,
-        repo,
-        prNumber,
+        repo: a.repo as string,
+        prNumber: a.pr_number as number,
+        agentId: AGENT_ID,
+        wireExternalUrl: WIRE_EXTERNAL_URL,
         name: a.name as string | undefined,
-        events: a.events as string[] | undefined,
-        externalUrl: WIRE_EXTERNAL_URL,
       });
+
+      // Register on Wire
+      const wireBody = JSON.stringify(result.wireBody);
+      const wireRes = await wirePost(`/agents/${AGENT_ID}/webhooks`, wireBody);
+      if (!wireRes.ok) {
+        // Roll back GitHub webhook
+        await deleteGithubWebhook({ githubToken: token, repo: a.repo as string, hookId: result.githubHookId });
+        throw new Error(`Wire registration failed (${wireRes.status}): ${await wireRes.text()}`);
+      }
+      const wireHook = (await wireRes.json()) as { webhook_id: number };
 
       return {
         content: [{
           type: "text" as const,
-          text: `Webhook registered: ${result.name}\n` +
-            `Wire webhook ID: ${result.wireWebhookId}\n` +
-            `GitHub hook ID: ${result.githubHookId}\n` +
-            `URL: ${result.wireWebhookUrl}`,
+          text: `Webhook registered: ${result.name}\nWire ID: ${wireHook.webhook_id}\nGitHub hook ID: ${result.githubHookId}`,
         }],
       };
     }
 
     if (name === "register_repo_webhook") {
-      const repo = a.repo as string;
-      const webhookName = a.name as string;
-      const events = a.events as string[];
       const token = (a.github_token as string) || GITHUB_TOKEN;
-
       if (!token) throw new Error("no GitHub token — set GITHUB_TOKEN or pass github_token param");
-      if (!repo) throw new Error("missing repo");
-      if (!webhookName) throw new Error("missing name");
-      if (!events?.length) throw new Error("missing events");
 
+      const webhookUrl = `${WIRE_EXTERNAL_URL}/webhooks/${AGENT_ID}/github/${a.name}`;
       const result = await registerRepoWebhook({
-        wireUrl: WIRE_URL,
-        agentId: AGENT_ID,
-        signingKey,
         githubToken: token,
-        repo,
-        name: webhookName,
-        events,
+        repo: a.repo as string,
+        name: a.name as string,
+        webhookUrl,
+        events: a.events as string[],
         filter: a.filter as string | undefined,
-        externalUrl: WIRE_EXTERNAL_URL,
       });
+
+      const wireBody = JSON.stringify(result.wireBody);
+      const wireRes = await wirePost(`/agents/${AGENT_ID}/webhooks`, wireBody);
+      if (!wireRes.ok) {
+        await deleteGithubWebhook({ githubToken: token, repo: a.repo as string, hookId: result.githubHookId });
+        throw new Error(`Wire registration failed (${wireRes.status}): ${await wireRes.text()}`);
+      }
+      const wireHook = (await wireRes.json()) as { webhook_id: number };
 
       return {
         content: [{
           type: "text" as const,
-          text: `Webhook registered: ${result.name}\n` +
-            `Wire webhook ID: ${result.wireWebhookId}\n` +
-            `GitHub hook ID: ${result.githubHookId}\n` +
-            `URL: ${result.wireWebhookUrl}`,
+          text: `Webhook registered: ${result.name}\nWire ID: ${wireHook.webhook_id}\nGitHub hook ID: ${result.githubHookId}`,
         }],
       };
     }
@@ -217,12 +184,8 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
       const webhookId = a.webhook_id as number;
       if (!webhookId) throw new Error("missing webhook_id");
 
-      await unregisterWebhook({
-        wireUrl: WIRE_URL,
-        agentId: AGENT_ID,
-        signingKey,
-        webhookId,
-      });
+      const res = await wireDelete(`/agents/${AGENT_ID}/webhooks/${webhookId}`);
+      if (!res.ok) throw new Error(`Wire deletion failed (${res.status}): ${await res.text()}`);
 
       return {
         content: [{ type: "text" as const, text: `Webhook ${webhookId} deleted` }],
@@ -238,8 +201,6 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
   }
 });
 
-// --- Main ---
-
 async function main(): Promise<void> {
   const rawKey = process.env.PANE_PRIVATE_KEY ?? process.env.WIRE_PRIVATE_KEY;
   if (!rawKey) {
@@ -249,16 +210,11 @@ async function main(): Promise<void> {
     signingKey = await crypto.subtle.importKey("pkcs8", pkcs8, "Ed25519", true, ["sign"]);
   }
 
-  if (!AGENT_ID) {
-    console.error("[github] no WIRE_AGENT_ID — tools will fail");
-  }
-  if (!GITHUB_TOKEN) {
-    console.error("[github] no GITHUB_TOKEN — agents must pass github_token param");
-  }
+  if (!AGENT_ID) console.error("[github] no WIRE_AGENT_ID — tools will fail");
+  if (!GITHUB_TOKEN) console.error("[github] no GITHUB_TOKEN — agents must pass github_token param");
 
   const transport = new StdioServerTransport();
   await mcp.connect(transport);
-
   console.error(`[github] ready (agent=${AGENT_ID})`);
 }
 
