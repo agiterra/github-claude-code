@@ -10,7 +10,7 @@
  *   WIRE_URL             default http://localhost:9800
  *   WIRE_EXTERNAL_URL    externally-reachable Wire URL (e.g. ngrok)
  *   WIRE_AGENT_ID        required
- *   WIRE_PRIVATE_KEY     or PANE_PRIVATE_KEY — for Wire API auth
+ *   WIRE_PRIVATE_KEY     or CREW_PRIVATE_KEY — for Wire API auth
  *   GITHUB_TOKEN         default GitHub token (admin:repo_hook scope)
  */
 
@@ -26,7 +26,7 @@ import { createAuthJwt } from "@agiterra/wire-tools/crypto";
 const WIRE_URL = process.env.WIRE_URL ?? "http://localhost:9800";
 const WIRE_EXTERNAL_URL = process.env.WIRE_EXTERNAL_URL ?? WIRE_URL;
 const AGENT_ID =
-  process.env.PANE_AGENT_ID ?? process.env.WIRE_AGENT_ID ?? "";
+  process.env.CREW_AGENT_ID ?? process.env.WIRE_AGENT_ID ?? "";
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN ?? "";
 
 let signingKey: CryptoKey | null = null;
@@ -202,7 +202,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
 });
 
 async function main(): Promise<void> {
-  const rawKey = process.env.PANE_PRIVATE_KEY ?? process.env.WIRE_PRIVATE_KEY;
+  const rawKey = process.env.CREW_PRIVATE_KEY ?? process.env.WIRE_PRIVATE_KEY;
   if (!rawKey) {
     console.error("[github] no private key — Wire auth disabled");
   } else {
