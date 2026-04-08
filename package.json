@@ -1,6 +1,6 @@
 {
   "name": "@agiterra/github-claude-code",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "GitHub webhook tools for Claude Code agents — register PR webhooks, manage lifecycle.",
   "license": "MIT",
   "type": "module",

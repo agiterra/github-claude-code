@@ -56,6 +56,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
           repo: { type: "string", description: "Repository in owner/repo format" },
           pr_number: { type: "number", description: "PR number to monitor" },
           name: { type: "string", description: "Optional webhook name. Defaults to '{repo-name}-pr-{number}'" },
+          filter: { type: "string", description: "Extra JS filter expression OR'd with the built-in PR filter. Vars: headers, payload." },
           github_token: { type: "string", description: "GitHub token. Defaults to GITHUB_TOKEN env var." },
         },
         required: ["repo", "pr_number"],
@@ -123,6 +124,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
       const token = (a.github_token as string) || GITHUB_TOKEN;
       if (!token) throw new Error("no GitHub token — set GITHUB_TOKEN or pass github_token param");
 
+      const extraFilters = a.filter ? [a.filter as string] : undefined;
       const result = await registerPrWebhook({
         githubToken: token,
         repo: a.repo as string,
@@ -130,6 +132,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
         agentId: AGENT_ID,
         wireExternalUrl: WIRE_EXTERNAL_URL,
         name: a.name as string | undefined,
+        extraFilters,
       });
 
       // Register on Wire
