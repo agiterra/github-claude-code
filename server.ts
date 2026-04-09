@@ -21,7 +21,7 @@ import {
   CallToolRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { registerPrWebhook, registerRepoWebhook, deleteGithubWebhook } from "@agiterra/github-tools";
-import { createAuthJwt } from "@agiterra/wire-tools/crypto";
+import { createAuthJwt, importPrivateKey } from "@agiterra/wire-tools/crypto";
 
 const WIRE_URL = process.env.WIRE_URL ?? "http://localhost:9800";
 const WIRE_EXTERNAL_URL = process.env.WIRE_EXTERNAL_URL ?? WIRE_URL;
@@ -209,8 +209,7 @@ async function main(): Promise<void> {
   if (!rawKey) {
     console.error("[github] no private key — Wire auth disabled");
   } else {
-    const pkcs8 = Uint8Array.from(atob(rawKey), (c) => c.charCodeAt(0));
-    signingKey = await crypto.subtle.importKey("pkcs8", pkcs8, "Ed25519", true, ["sign"]);
+    signingKey = await importPrivateKey(rawKey);
   }
 
   if (!AGENT_ID) console.error("[github] no WIRE_AGENT_ID — tools will fail");
