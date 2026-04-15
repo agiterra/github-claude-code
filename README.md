@@ -29,4 +29,4 @@ GitHub webhook tools — register PR webhooks via Wire and manage their lifecycl
 | `GITHUB_TOKEN` | — | GitHub personal access token (required) |
 | `WIRE_URL` | `http://localhost:9800` | Wire server base URL |
 | `AGENT_ID` | — | Agent identity for Wire routing |
-| `WIRE_PRIVATE_KEY` | — | Ed25519 private key for Wire auth |
+| `AGENT_PRIVATE_KEY` | — | Ed25519 private key for Wire auth |
