@@ -1,6 +1,6 @@
 {
   "name": "@agiterra/github-claude-code",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "GitHub webhook tools for Claude Code agents \u2014 register PR webhooks, manage lifecycle.",
   "license": "MIT",
   "type": "module",
@@ -9,7 +9,7 @@
     "start": "bun install --no-summary && bun server.ts"
   },
   "dependencies": {
-    "@agiterra/github-tools": "agiterra/github-tools#v1.0.0",
+    "@agiterra/github-tools": "agiterra/github-tools#v1.1.0",
     "@agiterra/wire-tools": "agiterra/wire-tools#v2.0.0",
     "@modelcontextprotocol/sdk": "^1.0.0"
   },
