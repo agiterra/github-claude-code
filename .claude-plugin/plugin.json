@@ -1,13 +1,18 @@
 {
   "name": "github",
-  "version": "1.9.0",
-  "description": "GitHub webhook tools for Claude Code agents — register PR webhooks, manage lifecycle, HMAC validation.",
+  "version": "1.10.0",
+  "description": "GitHub webhook tools for Claude Code agents \u2014 register PR webhooks, manage lifecycle, HMAC validation.",
   "author": {
     "name": "Tim Garthwaite",
     "url": "https://github.com/mividtim"
   },
   "license": "MIT",
-  "keywords": ["github", "webhook", "pr", "mcp"],
+  "keywords": [
+    "github",
+    "webhook",
+    "pr",
+    "mcp"
+  ],
   "postInstall": "bun install",
   "postUpdate": "bun install"
 }
