@@ -1,0 +1,19 @@
+# mcp-tee env allowlist — github plugin (github 1.12.0 + @agiterra/github-tools v1.10.0 + wire-tools v2.0.0).
+# Base set (PATH HOME USER LOGNAME SHELL LANG LC_* TERM TMPDIR TZ) is implicit.
+# ENG-5158. Built from a static read of server.ts + node_modules/@agiterra/* (tests excluded) on 2026-10-21,
+# plus the two subprocesses github-tools runs: `bash -c $GITHUB_APP_TOKEN_CMD` (gh-app-token.sh) and
+# `gh auth token` (gh-shim). WIRE_* is listed by name so WIRE_DASHBOARD_TOKEN (operator-only) stays out.
+AGENT_ID                 # Wire identity
+AGENT_NAME
+AGENT_PLAN
+AGENT_PRIVATE_KEY        # signing
+CLAUDE_CODE_SESSION_ID   # session binding
+WIRE_URL
+WIRE_EXTERNAL_URL        # webhook callback base
+GITHUB_TOOLS_STATE_DIR   # webhook registry location
+GITHUB_TOKEN             # static-token path (this server's own credential)
+GITHUB_APP_TOKEN_CMD     # mint path; Claude lanes set it
+GITHUB_APP_*             # gh-app-token.sh: GITHUB_APP_ID GITHUB_APP_KEY_PATH (a key PATH, never a key value)
+GH_*                     # gh-app-token.sh GH_APP_*; gh-shim GH_APP_TOKEN_CMD GH_APP_TOKEN_CACHE; gh GH_TOKEN GH_CONFIG_DIR
+CURL_MAX_TIME            # gh-app-token.sh
+XDG_CONFIG_HOME          # gh config location
