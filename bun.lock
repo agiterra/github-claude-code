@@ -5,7 +5,7 @@
     "": {
       "name": "@agiterra/github-claude-code",
       "dependencies": {
-        "@agiterra/github-tools": "agiterra/github-tools#v1.10.0",
+        "@agiterra/github-tools": "agiterra/github-tools#v1.10.1",
         "@agiterra/mcp-tee": "agiterra/mcp-tee#v0.3.0",
         "@agiterra/wire-tools": "agiterra/wire-tools#v2.0.0",
         "@modelcontextprotocol/sdk": "^1.0.0",
@@ -16,7 +16,7 @@
     },
   },
   "packages": {
-    "@agiterra/github-tools": ["@agiterra/github-tools@github:agiterra/github-tools#5ef66d4", { "dependencies": { "@agiterra/wire-tools": "agiterra/wire-tools#v2.0.0", "@modelcontextprotocol/sdk": "^1.29.0" } }, "agiterra-github-tools-5ef66d4", "sha512-jclLcVrFOHbGxHrYv1g50Hpj6pEUncBxUjWiuHPTzj20b+RaochNTZy3gHV7NRaU2Cj+8h+sHB4/NDbm+UFsIA=="],
+    "@agiterra/github-tools": ["@agiterra/github-tools@github:agiterra/github-tools#53fcbae", { "dependencies": { "@agiterra/wire-tools": "agiterra/wire-tools#v2.0.0", "@modelcontextprotocol/sdk": "^1.29.0" } }, "agiterra-github-tools-53fcbae", "sha512-J/SIjqKssid2yW/v2iXTcBqE3NBzX4x25+Kd3xkZSWHBmmjBT/6oD4OGZEStFohzy/2au8WZvsc8Zt1rkynejg=="],
 
     "@agiterra/mcp-tee": ["@agiterra/mcp-tee@github:agiterra/mcp-tee#4cec508", { "bin": { "mcp-tee": "./bin/mcp-tee.sh" } }, "agiterra-mcp-tee-4cec508", "sha512-OmLl0eVP5M/fOx0FUPhLiN2E8vr8Rue8hVd/VjkTY/W94XQSJXP3CAdlr5qpIXlWT/0t7DgIA2ghEZkROqYhWA=="],
 
