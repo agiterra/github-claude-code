@@ -1,6 +1,6 @@
 {
   "name": "github",
-  "version": "1.12.1",
+  "version": "1.12.2",
   "description": "GitHub webhook tools for Claude Code agents \u2014 register PR webhooks, manage lifecycle, HMAC validation.",
   "author": {
     "name": "Tim Garthwaite",
